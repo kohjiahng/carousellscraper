@@ -10,9 +10,7 @@ load_dotenv(override=True)
 
 LOG_FILE = os.getenv('LOG_FILE')
 
-# Creating log folder and file if not exist
-if not os.path.isdir('./logs'):
-    os.makedirs('./logs')
+# Creating log file if not exist
 if not os.path.exists(LOG_FILE):
     with open(LOG_FILE, 'w') as file:
         pass
