@@ -45,7 +45,7 @@ async def status(ctx):
 
 @tasks.loop(seconds=60)
 async def loop(ctx):
-    await ctx.send("Checking for listings...")
+    # await ctx.send("Checking for listings...")
     for item in scraper.check():
         embed = discord.Embed(url=item['link'])
         embed.set_image(url=item['image'])
