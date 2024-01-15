@@ -20,69 +20,104 @@ logging.basicConfig(filename=LOG_FILE,
                     format = '%(asctime)s:%(levelname)s:%(name)s:%(message)s',
                     filemode='w')
 
-url = "https://www.carousell.sg/categories/cameras-1863/?cameras_type=TYPE_POINT_AND_SHOOT%2CTYPE_DSLR%2CTYPE_MIRRORLESS&searchId=kkZNPc&canChangeKeyword=false&price_end=250&includeSuggestions=false&sort_by=3"
-
-op = webdriver.ChromeOptions()
-op.add_argument('headless')
-op.add_argument("user-agent=XXX")
-dr = webdriver.Chrome(options = op)
-
-item_regex = re.compile("listing-card-[0-9]*")
-time_regex = re.compile("(\d|\d\d) seconds ago|(\d|\d\d) minutes ago")
-
 class CarousellScraper:
-    def __init__(self):
+    def __init__(self, url):
         self.title_pool = BufferPool(100)
-        pass
+        self.url = url
 
-    def check(self):
-        dr.get(url)
-        bs = BeautifulSoup(dr.page_source,features="html.parser")
+        op = webdriver.ChromeOptions()
+        op.add_argument('headless')
+        op.add_argument("user-agent=XXX")
+        self.driver = webdriver.Chrome(options = op)
+
+    def get_time(self, item):
+        time_p = item.find('p').find_next('p')
+        if not time_p:
+            logging.error(f"No time found in item {item}")
+            return None
+        else:
+            return time_p.get_text()
+
+    def get_title(self, item):
+        title_p = item.find('p',{"style":re.compile("--max-line:2|--max-line: 2;")})
+        if not title_p:
+            logging.error(f"No title found in item {item}")
+            return None
+        else:
+            return title_p.get_text()
+
+    def get_path(self, item):
+        path_a = item.find('a').find_next('a')
+        if not path_a:
+            logging.error(f"No path found in item {item}")
+            return None
+        else:
+            return path_a['href']
+    
+    def get_price(self, item):
+        title_p = item.find('p',{"style":re.compile("--max-line:2|--max-line: 2;")})
+        price_p = title_p.find_next('p')
+        if not price_p:
+            logging.error(f"No price found in item {item}")
+            return None
+        else:
+            return price_p.get_text()
+
+    def get_usage(self, item):
+        title_p = item.find('p',{"style":re.compile("--max-line:2|--max-line: 2;")})
+        price_p = title_p.find_next('p')
+        usage_p = price_p.find_next('p')
+        if not usage_p:
+            logging.error(f"No usage found in item {item}")
+        else:
+            return usage_p.get_text()
+        
+    def get_image(self, item):
+        link_a = item.find('a').find_next('a')
+        image_img = link_a.find('img')
+        if not image_img:
+            logging.error(f"No image found in item {item}")
+        else:
+            return image_img['src']
+
+    def extract_data(self, item):
+        time = self.get_time(item)
+        title = self.get_title(item)
+        path = self.get_path(item)
+        price = self.get_price(item)
+        image = self.get_image(item)
+        usage = self.get_usage(item)
+
+        data = {
+            "title": title,
+            "time": time,
+            "path": path,
+            "price": price,
+            "image": image,
+            "usage": usage
+        }
+        if None in data.values():
+            return None
+        else:
+            return data
+
+    def get_all_items(self):
+        item_regex = re.compile("listing-card-[0-9]*")
+        self.driver.get(self.url)
+        bs = BeautifulSoup(self.driver.page_source,features="html.parser")
         items = bs.find_all("div", {"data-testid":item_regex})
 
         for item in items:
-            time_p = item.find('p').find_next('p')
-            title_p = item.find('p',{"style":re.compile("--max-line:2|--max-line: 2;")})
-            price_p = title_p.find_next('p')
-            usage_p = price_p.find_next('p')
-            link_a = item.find('a').find_next('a')
-            image_img = link_a.find('img')
+            data = self.extract_data(item)
+            if data:
+                yield data
 
-            if not time_p:
-                logging.error(f"No time found in item {item}")
+    def check_new_item(self, item):
+        time_regex = re.compile("(\d|\d\d) seconds ago|(\d|\d\d) minutes ago") # < 1h ago
+        is_new = time_regex.match(item['time']) and  self.title_pool.check(item['title'])
+        self.title_pool.add(item['title'])
+        return is_new
 
-            if not title_p:
-                logging.error(f"No title found in item {item}")
-
-            if not link_a:
-                logging.error(f"No link found in item {item}")
-            if not price_p:
-                logging.error(f"No price found in item {item}")
-            if not image_img:
-                logging.error(f"No image found in item{item}")
-
-            if not time_p or not title_p or not link_a or not price_p or not image_img:
-                continue
-
-            time = time_p.get_text()
-            title = title_p.get_text()
-            link = link_a['href']
-            price = price_p.get_text()
-            image = image_img['src']
-            usage = usage_p.get_text()
-
-
-            if not time_regex.match(time): # >= 1h ago
-                continue
-            if not self.title_pool.add(title):
-                continue
-            
-            yield {
-                "time": time,
-                "title": title,
-                "link": f"https://carousell.sg{link}",
-                "price": price,
-                "image": image,
-                "usage": usage
-            }
+    def get_filtered_items(self):
+        return filter(self.check_new_item, self.get_all_items())
 
