@@ -12,7 +12,7 @@ git clone https://github.com/kohjiahng/carousellscraper
 chmod -R 777 carousellscraper
 cd carousellscraper
 
-echo "DISCORD_TOKEN=MTE5NDkyNDQ1Njc2MjY4NzUwOA.GLLFps.jTbgkJMQgJrtxBFOgLAsirjQR1nnJxKG29T4sI
+echo "DISCORD_TOKEN={TOKEN}
 LOG_FILE=logs.txt" > .env
 
 # chrome can only be run as non-root user fsr
