@@ -20,12 +20,13 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 loops = {}
 
 @bot.command()
-async def start(ctx):
+async def start(ctx, url=None):
+    if not url:
+        url = "https://www.carousell.sg/categories/cameras-1863/?cameras_type=TYPE_POINT_AND_SHOOT%2CTYPE_DSLR%2CTYPE_MIRRORLESS&searchId=kkZNPc&canChangeKeyword=false&price_end=250&includeSuggestions=false&sort_by=3"
     channel_id = ctx.channel.id
     if channel_id not in loops:
         await ctx.send("Starting Bot!")
 
-        url = "https://www.carousell.sg/categories/cameras-1863/?cameras_type=TYPE_POINT_AND_SHOOT%2CTYPE_DSLR%2CTYPE_MIRRORLESS&searchId=kkZNPc&canChangeKeyword=false&price_end=250&includeSuggestions=false&sort_by=3"
         scraper = CarousellScraper(url=url)
         loop = create_loop(ctx, scraper)
         loops[channel_id] = loop
